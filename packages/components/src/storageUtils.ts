@@ -14,10 +14,10 @@ export const addBase64FilesToStorage = async (file: string, chatflowid: string, 
         const bf = Buffer.from(splitDataURI.pop() || '', 'base64')
         const mime = splitDataURI[0].split(':')[1].split(';')[0]
 
-        const key = chatflowid + '/' + filename
+        const Key = chatflowid + '/' + filename
         const putObjCmd = new PutObjectCommand({
             Bucket,
-            Key: key,
+            Key,
             ContentEncoding: 'base64', // required for binary data
             ContentType: mime,
             Body: bf
@@ -61,6 +61,7 @@ export const addFileToStorage = async (mime: string, bf: Buffer, fileName: strin
             Body: bf
         })
         await s3Client.send(putObjCmd)
+        return 'FILE-STORAGE::' + fileName
     } else {
         const dir = path.join(getStoragePath(), ...paths)
         if (!fs.existsSync(dir)) {
@@ -69,6 +70,7 @@ export const addFileToStorage = async (mime: string, bf: Buffer, fileName: strin
 
         const filePath = path.join(dir, fileName)
         fs.writeFileSync(filePath, bf)
+        return 'FILE-STORAGE::' + fileName
     }
 }
 
@@ -130,6 +132,21 @@ export const removeFilesFromStorage = async (...paths: string[]) => {
     } else {
         const directory = path.join(getStoragePath(), ...paths)
         _deleteLocalFolderRecursive(directory)
+    }
+}
+
+export const removeSpecificFileFromStorage = async (...paths: string[]) => {
+    const storageType = getStorageType()
+    if (storageType === 's3') {
+        let Key = paths.reduce((acc, cur) => acc + '/' + cur, '')
+        // remove the first '/' if it exists
+        if (Key.startsWith('/')) {
+            Key = Key.substring(1)
+        }
+        await _deleteS3Folder(Key)
+    } else {
+        const file = path.join(getStoragePath(), ...paths)
+        fs.unlinkSync(file)
     }
 }
 
